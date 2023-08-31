@@ -462,7 +462,7 @@ static bool create_signature(const RSA *rsa, const char *sigpath, enclave_css_t 
 
         uint8_t hash[SGX_HASH_SIZE] = {0};
         unsigned int hash_size = SGX_HASH_SIZE;
-        if(SGX_SUCCESS != sgx_EVP_Digest(EVP_sha256(), temp_buffer, (unsigned int)buffer_size, hash, &hash_size))
+        if(0 != wc_Sha256Hash(temp_buffer, (unsigned int)buffer_size, hash))
         {
             free(temp_buffer);
             return false;
@@ -510,7 +510,7 @@ static bool verify_signature(const RSA *rsa, const enclave_css_t *enclave_css)
 
     uint8_t hash[SGX_HASH_SIZE] = {0};
     unsigned int hash_size = SGX_HASH_SIZE;
-    if(SGX_SUCCESS != sgx_EVP_Digest(EVP_sha256(), temp_buffer, (unsigned int)buffer_size, hash, &hash_size))
+    if(0 != wc_Sha256Hash(temp_buffer, (unsigned int)buffer_size, hash))
     {
         free(temp_buffer);
         return false;
@@ -1455,7 +1455,6 @@ clear_return:
     if(res == -1 && path[CSSFILE])
         remove(path[CSSFILE]);
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-    EVP_cleanup();
     CRYPTO_cleanup_all_ex_data();
     ERR_remove_thread_state(NULL);
     ERR_free_strings();

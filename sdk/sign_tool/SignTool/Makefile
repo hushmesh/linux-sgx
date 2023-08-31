@@ -62,7 +62,7 @@ OBJ1 := manage_metadata.o      \
         parse_key_file.o       \
         util_st.o
 
-OBJ2 := sgx_memset_s.o crypto_evp_digest.o
+OBJ2 := sgx_memset_s.o
 
 OBJ3 := tinyxml2.o
 

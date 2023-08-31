@@ -1715,6 +1715,7 @@ bool update_metadata(const char *path, const metadata_t *metadata, uint64_t meta
 
 #define CONCAT(name, num) name##num
 #define A(num)     CONCAT(metadata, num)
+/*
 static void print_metadata_internal(std::ofstream &meta_ofs, const metadata_t *metadata)
 {
     assert(metadata != NULL);
@@ -1757,9 +1758,13 @@ static void print_metadata_internal(std::ofstream &meta_ofs, const metadata_t *m
     PRINT_ARRAY(meta_ofs, metadata, enclave_css.buffer.q1, SE_KEY_SIZE); 
     PRINT_ARRAY(meta_ofs, metadata, enclave_css.buffer.q2, SE_KEY_SIZE);
 }
+*/
 
 bool print_metadata(const char *path, const metadata_t *metadata)
 {
+    (void)(path);
+    (void)(metadata);
+/*
     assert(path != NULL && metadata != NULL);
 
     std::ofstream meta_ofs(path, std::ofstream::out | std::ofstream::trunc);
@@ -1826,5 +1831,6 @@ bool print_metadata(const char *path, const metadata_t *metadata)
     PRINT_ARRAY(meta_ofs, mrsigner, value, SGX_HASH_SIZE);
 
     meta_ofs.close();
+*/
     return true;
 }
