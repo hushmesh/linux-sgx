@@ -48,6 +48,7 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/crypto.h>
+#include <wolfssl/wolfcrypt/rsa.h>
 
 #include "metadata.h"
 #include "manage_metadata.h"
@@ -345,51 +346,41 @@ static bool calc_RSAq1q2(int length_s, const uint8_t *data_s, int length_m, cons
 {
     assert(data_s && data_m && data_q1 && data_q2);
     bool ret = false;
-    BIGNUM *ptemp1=NULL, *ptemp2=NULL, *pQ1=NULL, *pQ2=NULL, *pM=NULL, *pS = NULL;
-    unsigned char *q1 = NULL, *q2= NULL;
-    BN_CTX *ctx = NULL;
+    mp_int ptemp1, ptemp2, pQ1, pQ2, pM, pS;
+    unsigned char *q1 = NULL, *q2 = NULL;
 
     do{
-        if((ptemp1 = BN_new()) == NULL)
+        mp_init(&ptemp1);
+        mp_init(&ptemp2);
+        mp_init(&pQ1);
+        mp_init(&pQ2);
+        mp_init(&pM);
+        mp_init(&pS);
+        if(mp_read_unsigned_bin(&pM, (const unsigned char *)data_m, length_m) != MP_OKAY)
             break;
-        if((ptemp2 = BN_new()) == NULL)
-            break;
-        if((pQ1 = BN_new()) == NULL)
-            break;
-        if((pQ2 = BN_new()) == NULL)
-            break;
-        if((pM = BN_new()) == NULL)
-            break;
-        if((pS = BN_new()) == NULL)
-            break;
-
-        if(BN_bin2bn((const unsigned char *)data_m, length_m, pM) == NULL)
-            break;
-        if(BN_bin2bn((const unsigned char *)data_s, length_s, pS) == NULL)
-            break;
-        if((ctx = BN_CTX_new()) == NULL)
+        if(mp_read_unsigned_bin(&pS, (const unsigned char *)data_s, length_s) != MP_OKAY)
             break;
 
         //q1 = floor(signature*signature/modulus)
         //q2 = floor((signature*signature.signature - q1*signature*Modulus)/Modulus)
-        if(BN_mul(ptemp1, pS, pS, ctx) != 1) 
+        if(mp_mul(&pS, &pS, &ptemp1) != MP_OKAY)
             break; 
-        if(BN_div(pQ1, ptemp2, ptemp1, pM, ctx) !=1)
+        if(mp_div(&ptemp1, &pM, &pQ1, &ptemp2) != MP_OKAY)
             break;
-        if(BN_mul(ptemp1, pS, ptemp2, ctx) !=1)
+        if(mp_mul(&pS, &ptemp2, &ptemp1) != MP_OKAY)
             break;
-        if(BN_div(pQ2, ptemp2, ptemp1, pM, ctx) !=1)
+        if(mp_div(&ptemp1, &pM, &pQ2, &ptemp2) != MP_OKAY)
             break;
 
-        int q1_len = BN_num_bytes(pQ1);
-        int q2_len = BN_num_bytes(pQ2);
+        int q1_len = mp_unsigned_bin_size(&pQ1);
+        int q2_len = mp_unsigned_bin_size(&pQ2);
         if((q1 = (unsigned char *)malloc(q1_len)) == NULL)
             break;
         if((q2 = (unsigned char *)malloc(q2_len)) == NULL)
             break;
-        if(q1_len != BN_bn2bin(pQ1, (unsigned char *)q1))
+        if(MP_OKAY != mp_to_unsigned_bin(&pQ1, (unsigned char *)q1))
             break;
-        if(q2_len != BN_bn2bin(pQ2, (unsigned char *)q2))
+        if(MP_OKAY != mp_to_unsigned_bin(&pQ2, (unsigned char *)q2))
             break;
         int size_q1 = (q1_len < SE_KEY_SIZE) ? q1_len : SE_KEY_SIZE;
         int size_q2 = (q2_len < SE_KEY_SIZE) ? q2_len : SE_KEY_SIZE;
@@ -408,20 +399,7 @@ static bool calc_RSAq1q2(int length_s, const uint8_t *data_s, int length_m, cons
         free(q1);
     if(q2)
         free(q2);
-    if(ptemp1)
-        BN_clear_free(ptemp1);
-    if(ptemp2)
-        BN_clear_free(ptemp2);
-    if(pQ1)
-        BN_clear_free(pQ1);
-    if(pQ2)
-        BN_clear_free(pQ2);
-    if(pS)
-        BN_clear_free(pS);
-    if(pM)
-        BN_clear_free(pM);
-    if(ctx)
-        BN_CTX_free(ctx);
+
     return ret;
 }
 
