@@ -954,6 +954,8 @@ void ElfParser::get_executable_sections(std::vector<const char *>& xsec_names) c
 
 bool ElfParser::set_memory_protection(uint64_t enclave_base_addr)
 {
+	(void)(enclave_base_addr);
+/*
     uint64_t len = 0;
     int ret = 0;
     uint64_t rva = 0;
@@ -1030,6 +1032,7 @@ bool ElfParser::set_memory_protection(uint64_t enclave_base_addr)
            }
        }
     }
+*/
     return true;
 }
 

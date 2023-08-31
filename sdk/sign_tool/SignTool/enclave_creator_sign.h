@@ -32,8 +32,7 @@
 #ifndef _ENCLAVE_CREATOR_SIGN_H_
 #define _ENCLAVE_CREATOR_SIGN_H_
 
-#include <openssl/evp.h>
-
+#include <wolfssl/wolfcrypt/hash.h>
 
 #include "enclave_creator.h"
 #include "sgx_eid.h"
@@ -58,7 +57,7 @@ public:
     int get_enclave_info(uint8_t *hash, int size, uint64_t *quota);
 private:
     uint8_t m_enclave_hash[SGX_HASH_SIZE];
-    EVP_MD_CTX  *m_ctx;
+    wc_Sha256 m_ctx;
     bool m_hash_valid_flag;
     sgx_enclave_id_t m_eid;
     uint64_t m_quota;

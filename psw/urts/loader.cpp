@@ -182,6 +182,7 @@ int CLoader::build_mem_region(const section_info_t &sec_info)
             assert(g_enclave_creator != NULL);
             if(g_enclave_creator->use_se_hw() == true)
             {
+		/*
                 ret = mprotect((void*)(TRIM_TO_PAGE(rva) + (uint64_t)m_start_addr), SE_PAGE_SIZE, 
                                (int)(sinfo.flags & SI_MASK_MEM_ATTRIBUTE));
                 if(ret != 0)
@@ -190,6 +191,7 @@ int CLoader::build_mem_region(const section_info_t &sec_info)
                              rva, SE_PAGE_SIZE, int(sinfo.flags & SI_MASK_MEM_ATTRIBUTE));
                     return SGX_ERROR_UNEXPECTED;
                 }
+		*/
             }
         }
 
@@ -908,6 +910,10 @@ int CLoader::set_memory_protection()
 
 int CLoader::set_context_protection(layout_t *layout_start, layout_t *layout_end, uint64_t delta)
 {
+	(void)(layout_start);
+	(void)(layout_end);
+	(void)(delta);
+/*
     int ret = SGX_ERROR_UNEXPECTED;
     for(layout_t *layout = layout_start; layout < layout_end; layout++)
     {
@@ -978,5 +984,6 @@ int CLoader::set_context_protection(layout_t *layout_start, layout_t *layout_end
             }
         }
     }
+*/
     return SGX_SUCCESS;
 }

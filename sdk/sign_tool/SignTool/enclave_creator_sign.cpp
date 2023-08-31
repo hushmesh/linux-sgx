@@ -64,15 +64,12 @@ EnclaveCreatorST::EnclaveCreatorST()
 {
     m_hash_valid_flag = false;
     memset(m_enclave_hash, 0, SGX_HASH_SIZE);
-    m_ctx = NULL;
     m_eid = EID;
     m_quota = 0;
 }
 
 EnclaveCreatorST::~EnclaveCreatorST()
 {
-    if(m_ctx)
-        EVP_MD_CTX_destroy(m_ctx);
 }
 
 int EnclaveCreatorST::create_enclave(secs_t *secs, sgx_enclave_id_t *enclave_id, void **start_addr, const uint32_t ex_features, const void* ex_features_p[32])
@@ -92,14 +89,9 @@ int EnclaveCreatorST::create_enclave(secs_t *secs, sgx_enclave_id_t *enclave_id,
     }
     
     memset(m_enclave_hash, 0, SGX_HASH_SIZE);
-    if((m_ctx = EVP_MD_CTX_create()) == NULL)
+    if(wc_InitSha256(&m_ctx) != 0)
     {
-        se_trace(SE_TRACE_DEBUG, "ERROR - EVP_MD_CTX_create: %s.\n", ERR_error_string(ERR_get_error(), NULL));
-        return SGX_ERROR_UNEXPECTED;
-    }
-    if(EVP_DigestInit_ex(m_ctx, EVP_sha256(), NULL) != 1)
-    {
-        se_trace(SE_TRACE_DEBUG, "ERROR - EVP_DigestInit_ex: %s.\n", ERR_error_string(ERR_get_error(), NULL));
+        se_trace(SE_TRACE_DEBUG, "ERROR - wc_InitSha256\n");
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -119,9 +111,9 @@ int EnclaveCreatorST::create_enclave(secs_t *secs, sgx_enclave_id_t *enclave_id,
     offset += sizeof(secs->ssa_frame_size);
     memcpy_s(&data_block[offset], sizeof(data_block)-offset, &size, sizeof(uint64_t));
 
-    if(EVP_DigestUpdate(m_ctx, &data_block, DATA_BLOCK_SIZE) != 1)
+    if(wc_Sha256Update(&m_ctx, data_block, DATA_BLOCK_SIZE) != 0)
     {
-        se_trace(SE_TRACE_DEBUG, "ERROR - EVP_DigestUpdate: %s.\n", ERR_error_string(ERR_get_error(), NULL));
+        se_trace(SE_TRACE_DEBUG, "ERROR - wc_Sha256Update\n");
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -132,7 +124,6 @@ int EnclaveCreatorST::create_enclave(secs_t *secs, sgx_enclave_id_t *enclave_id,
 
 int EnclaveCreatorST::add_enclave_page(sgx_enclave_id_t enclave_id, void *src, uint64_t offset, const sec_info_t &sinfo, uint32_t attr)
 {   
-    assert(m_ctx!=NULL);
     UNUSED(enclave_id);
     void* source = src;
     uint8_t color_page[SE_PAGE_SIZE];
@@ -175,9 +166,9 @@ int EnclaveCreatorST::add_enclave_page(sgx_enclave_id_t enclave_id, void *src, u
     memcpy_s(data_block+db_offset, sizeof(data_block)-db_offset, &page_offset, sizeof(page_offset));
     db_offset += sizeof(page_offset);
     memcpy_s(data_block+db_offset, sizeof(data_block)-db_offset, &sinfo, sizeof(data_block)-db_offset);
-    if(EVP_DigestUpdate(m_ctx, data_block, DATA_BLOCK_SIZE) != 1)
+    if(wc_Sha256Update(&m_ctx, data_block, DATA_BLOCK_SIZE) != 0)
     {
-        se_trace(SE_TRACE_DEBUG, "ERROR - EVP_digestUpdate: %s.\n", ERR_error_string(ERR_get_error(), NULL));
+        se_trace(SE_TRACE_DEBUG, "ERROR - wc_Sha256Update\n");
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -195,18 +186,18 @@ int EnclaveCreatorST::add_enclave_page(sgx_enclave_id_t enclave_id, void *src, u
             memcpy_s(data_block, sizeof(data_block), eextend_val, SIZE_NAMED_VALUE);
             db_offset += SIZE_NAMED_VALUE;
             memcpy_s(data_block+db_offset, sizeof(data_block)-db_offset, &page_offset, sizeof(page_offset));
-            if(EVP_DigestUpdate(m_ctx, data_block, DATA_BLOCK_SIZE) != 1)
+            if(wc_Sha256Update(&m_ctx, data_block, DATA_BLOCK_SIZE) != 0)
             {
-                se_trace(SE_TRACE_DEBUG, "ERROR - EVP_digestUpdate: %s.\n", ERR_error_string(ERR_get_error(), NULL));
+                se_trace(SE_TRACE_DEBUG, "ERROR - wc_Sha256Update\n");
                 return SGX_ERROR_UNEXPECTED;
             }
 
             for(int j = 0; j < EEXTEND_TIME; j++)
             {
                 memcpy_s(data_block, sizeof(data_block), pdata, DATA_BLOCK_SIZE);
-                if(EVP_DigestUpdate(m_ctx, data_block, DATA_BLOCK_SIZE) != 1)
+                if(wc_Sha256Update(&m_ctx, data_block, DATA_BLOCK_SIZE) != 0)
                 {
-                    se_trace(SE_TRACE_DEBUG, "ERROR - EVP_digestUpdate: %s.\n", ERR_error_string(ERR_get_error(), NULL));
+                    se_trace(SE_TRACE_DEBUG, "ERROR - wc_Sha256Update\n");
                     return SGX_ERROR_UNEXPECTED;
                 }
                 pdata += DATA_BLOCK_SIZE;
@@ -226,12 +217,11 @@ int EnclaveCreatorST::init_enclave(sgx_enclave_id_t enclave_id, enclave_css_t *e
 
     uint8_t temp_hash[SGX_HASH_SIZE];
     memset(temp_hash, 0, SGX_HASH_SIZE);
-    unsigned int hash_len;
 
     /* Complete computation of the SHA256 digest and store the result into the hash. */
-    if(EVP_DigestFinal_ex(m_ctx, temp_hash, &hash_len) != 1)
+    if(wc_Sha256Final(&m_ctx, temp_hash) != 0)
     {
-        se_trace(SE_TRACE_DEBUG, "ERROR - EVP_digestFinal_ex: %s.\n", ERR_error_string(ERR_get_error(), NULL));
+        se_trace(SE_TRACE_DEBUG, "ERROR - wc_Sha256Final\n");
         return SGX_ERROR_UNEXPECTED;
     }
 
@@ -254,10 +244,6 @@ int EnclaveCreatorST::destroy_enclave(sgx_enclave_id_t enclave_id, uint64_t encl
 {
     UNUSED(enclave_id);
     UNUSED(enclave_size);
-    if(m_ctx){
-        EVP_MD_CTX_destroy(m_ctx);
-        m_ctx = NULL;
-    }
     return SGX_SUCCESS;
 }
 

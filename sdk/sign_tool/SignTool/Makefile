@@ -34,8 +34,8 @@ include ../../../buildenv.mk
 CXXFLAGS += -Werror
 CFLAGS   += -Werror
 
-CFLAGS += -fpie -DOPENSSL_API_COMPAT=10101
-CXXFLAGS += -fpie -DOPENSSL_API_COMPAT=10101
+CFLAGS += -fpie -DOPENSSL_API_COMPAT=10101 -DTFM_TIMING_RESISTANT -DECC_TIMING_RESISTANT -DWC_RSA_BLINDING -DWOLFSSL_USE_ALIGN
+CXXFLAGS += -fpie -DOPENSSL_API_COMPAT=10101 -DTFM_TIMING_RESISTANT -DECC_TIMING_RESISTANT -DWC_RSA_BLINDING -DWOLFSSL_USE_ALIGN
 LDFLAGS := -pie $(COMMON_LDFLAGS)
 
 INC += $(ADDED_INC)
@@ -46,7 +46,8 @@ INC +=  -I$(COMMON_DIR)/inc                         \
         -I$(LINUX_PSW_DIR)/urts                     \
         -I$(LINUX_PSW_DIR)/urts/linux               \
         -I$(LINUX_EXTERNAL_DIR)/tinyxml2            \
-        -I$(LINUX_PSW_DIR)/urts/parser
+        -I$(LINUX_PSW_DIR)/urts/parser              \
+	-I/home/mspiegel/git/mesh-process/c-libraries/install/wolfssl-app/include
 
 DIR1 := $(LINUX_EXTERNAL_DIR)/tinyxml2/
 DIR2 := $(COMMON_DIR)/src/
@@ -81,8 +82,8 @@ all: sgx_sign | $(BUILD_DIR)
 $(BUILD_DIR):
 	@$(MKDIR) $@
 
-sgx_sign: PRIVATE_LDLIBS  := -lpthread -lenclaveparser -lcrypto
-sgx_sign: PRIVATE_LDFLAGS := -L$(LINUX_PSW_DIR)/urts/parser $(LDFLAGS)
+sgx_sign: PRIVATE_LDLIBS  := -lpthread -lenclaveparser -lcrypto -lwolfssl
+sgx_sign: PRIVATE_LDFLAGS := -L$(LINUX_PSW_DIR)/urts/parser -L/home/mspiegel/git/mesh-process/c-libraries/install/wolfssl-app/lib $(LDFLAGS)
 
 sgx_sign: $(OBJS) enclaveparser
 	$(CXX) $(CXXFLAGS) $(OBJS) $(PRIVATE_LDFLAGS) $(PRIVATE_LDLIBS) -o $@
