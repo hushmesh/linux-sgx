@@ -38,7 +38,6 @@
 */
 
 #include "metadata.h"
-#include "tinyxml2.h"
 #include "manage_metadata.h"
 #include "se_trace.h"
 #include "util_st.h"
@@ -58,12 +57,6 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-
-using tinyxml2::XML_ERROR_FILE_COULD_NOT_BE_OPENED;
-using tinyxml2::XML_ERROR_FILE_NOT_FOUND;
-using tinyxml2::XML_SUCCESS;
-using tinyxml2::XMLElement;
-using tinyxml2::XMLError;
 
 #define ALIGN_SIZE 0x1000
 
@@ -122,6 +115,7 @@ static bool traverser_parameter(const char *temp_name, const char *temp_text, xm
 
 bool parse_metadata_file(const char *xmlpath, xml_parameter_t *parameter, int parameter_count)
 {
+    /*
     const char* temp_name=NULL;
 
     assert(parameter != NULL);
@@ -181,7 +175,7 @@ bool parse_metadata_file(const char *xmlpath, xml_parameter_t *parameter, int pa
 
         sub_element= sub_element->NextSiblingElement();
     }
-
+    */
     return true;
 }
 

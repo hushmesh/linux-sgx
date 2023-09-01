@@ -1294,6 +1294,16 @@ static bool dump_enclave_metadata(const char *enclave_path, const char *dumpfile
 }
 int main(int argc, char* argv[])
 {
+    uint64_t parameter_value[] = {
+             0, 0, 0, 0, 0, 0, 0, 0,
+             6, 32, 16, 1,
+	     0x40000, 0x40000,
+	     0x90000000, 0x90000000, 0x90000000,
+	     0x2000000, 0x2000000, 0x2000000,
+	     1, 0, 0xFFFFFFFF,
+	     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+
     xml_parameter_t parameter[] = {/* name,                 max_value          min_value,      default value,       flag */
                                    {"ProdID",               0xFFFF,                0,              0,                   0},
                                    {"ISVSVN",               0xFFFF,                0,              0,                   0},
@@ -1335,6 +1345,7 @@ int main(int argc, char* argv[])
     metadata_t *metadata = (metadata_t*)metadata_raw;
     int res = -1, mode = -1;
     size_t parameter_count = sizeof(parameter)/sizeof(parameter[0]);
+    size_t parameter_value_count = sizeof(parameter_value)/sizeof(parameter_value[0]);
     uint64_t meta_offset = 0;
     uint32_t option_flag_bits = 0;
     RsaKey rsa;
@@ -1346,6 +1357,10 @@ int main(int argc, char* argv[])
     FILE *fp = NULL;
 
     wolfCrypt_Init();
+    if(parameter_value_count != parameter_count) {
+        se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
+        goto clear_return;
+    }
 
     //Parse command line
     if(cmdline_parse(argc, argv, &mode, path, &option_flag_bits) == false)
@@ -1374,9 +1389,15 @@ int main(int argc, char* argv[])
     //Other modes
     //
     //Parse the xml file to get the metadata
+    /*
     if(parse_metadata_file(path[XML], parameter, (int)parameter_count) == false)
     {
         goto clear_return;
+    }
+    */
+    for(size_t i = 0; i < parameter_count; i++)
+    {
+        parameter[i].value = parameter_value[i];
     }
     //Parse the key file
     fp = fopen(path[KEY], "rb");
