@@ -31,11 +31,11 @@
 
 include ../../../buildenv.mk
 
-CXXFLAGS += -Werror
-CFLAGS   += -Werror
+CXXFLAGS += -Werror -USE_DEBUG_LEVEL -DSE_DEBUG_LEVEL=SE_TRACE_DEBUG
+CFLAGS   += -Werror -USE_DEBUG_LEVEL -DSE_DEBUG_LEVEL=SE_TRACE_DEBUG
 
-CFLAGS += -fpie -DOPENSSL_API_COMPAT=10101 -DTFM_TIMING_RESISTANT -DECC_TIMING_RESISTANT -DWC_RSA_BLINDING -DWOLFSSL_USE_ALIGN
-CXXFLAGS += -fpie -DOPENSSL_API_COMPAT=10101 -DTFM_TIMING_RESISTANT -DECC_TIMING_RESISTANT -DWC_RSA_BLINDING -DWOLFSSL_USE_ALIGN
+CFLAGS += -g -O0 -fpie -DOPENSSL_API_COMPAT=10101 -DTFM_TIMING_RESISTANT -DECC_TIMING_RESISTANT -DWC_RSA_BLINDING -DWOLFSSL_USE_ALIGN -DHAVE_LIBOQS
+CXXFLAGS += -g -O0 -fpie -DOPENSSL_API_COMPAT=10101 -DTFM_TIMING_RESISTANT -DECC_TIMING_RESISTANT -DWC_RSA_BLINDING -DWOLFSSL_USE_ALIGN -DHAVE_LIBOQS
 LDFLAGS := -pie $(COMMON_LDFLAGS)
 
 INC += $(ADDED_INC)
@@ -47,7 +47,7 @@ INC +=  -I$(COMMON_DIR)/inc                         \
         -I$(LINUX_PSW_DIR)/urts/linux               \
         -I$(LINUX_EXTERNAL_DIR)/tinyxml2            \
         -I$(LINUX_PSW_DIR)/urts/parser              \
-	-I/home/mspiegel/git/mesh-process/c-libraries/install/wolfssl-app/include
+        -I/home/mspiegel/git/mesh-process/c-libraries/install/wolfssl-app/include
 
 DIR1 := $(LINUX_EXTERNAL_DIR)/tinyxml2/
 DIR2 := $(COMMON_DIR)/src/
@@ -82,8 +82,11 @@ all: sgx_sign | $(BUILD_DIR)
 $(BUILD_DIR):
 	@$(MKDIR) $@
 
-sgx_sign: PRIVATE_LDLIBS  := -lpthread -lenclaveparser -lcrypto -lwolfssl
-sgx_sign: PRIVATE_LDFLAGS := -L$(LINUX_PSW_DIR)/urts/parser -L/home/mspiegel/git/mesh-process/c-libraries/install/wolfssl-app/lib $(LDFLAGS)
+sgx_sign: PRIVATE_LDLIBS  := -lpthread -lenclaveparser -lcrypto -lwolfssl -loqs
+sgx_sign: PRIVATE_LDFLAGS := -L$(LINUX_PSW_DIR)/urts/parser \
+	                     -L/home/mspiegel/git/mesh-process/c-libraries/install/wolfssl-app/lib \
+	                     -L/home/mspiegel/git/mesh-process/c-libraries/install/oqs-app/lib \
+			     $(LDFLAGS)
 
 sgx_sign: $(OBJS) enclaveparser
 	$(CXX) $(CXXFLAGS) $(OBJS) $(PRIVATE_LDFLAGS) $(PRIVATE_LDLIBS) -o $@
