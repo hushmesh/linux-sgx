@@ -41,19 +41,11 @@
 *
 */
 
-#include <openssl/bio.h>
-#include <openssl/bn.h>
-#include <openssl/sha.h>
-#include <openssl/rsa.h>
-#include <openssl/evp.h>
-#include <openssl/err.h>
-#include <openssl/crypto.h>
 #include <wolfssl/wolfcrypt/rsa.h>
 #include <wolfssl/wolfcrypt/asn.h>
 
 #include "metadata.h"
 #include "manage_metadata.h"
-#include "parse_key_file.h"
 #include "enclave_creator_sign.h"
 #include "util_st.h"
 
@@ -759,7 +751,7 @@ static bool cmdline_parse(unsigned int argc, char *argv[], int *mode, const char
 //             and then write the whole out file with body+header+hash
 //    CATSIG-  need to fill the enclave_css_t(include key), read the signature from the sigpath,
 //             and then update the metadata in the out file
-static bool generate_output(int mode, int ktype, const uint8_t *enclave_hash, const RsaKey *rsa, metadata_t *metadata,
+static bool generate_output(int mode, const uint8_t *enclave_hash, const RsaKey *rsa, metadata_t *metadata,
                             const char **path)
 {
     assert(enclave_hash != NULL && metadata != NULL && path != NULL);
@@ -768,7 +760,7 @@ static bool generate_output(int mode, int ktype, const uint8_t *enclave_hash, co
     {
     case SIGN:
         {
-            if(ktype != PRIVATE_KEY || !rsa)
+            if(!rsa)
             {
                 se_trace(SE_TRACE_ERROR, LACK_PRI_KEY_ERROR);
                 return false;
@@ -799,7 +791,7 @@ static bool generate_output(int mode, int ktype, const uint8_t *enclave_hash, co
         }
     case CATSIG:
         {
-            if(ktype != PUBLIC_KEY || !rsa)
+            if(!rsa)
             {
                 se_trace(SE_TRACE_ERROR, LACK_PUB_KEY_ERROR);
                 return false;
@@ -1342,7 +1334,6 @@ int main(int argc, char* argv[])
     uint8_t metadata_raw[METADATA_SIZE];
     metadata_t *metadata = (metadata_t*)metadata_raw;
     int res = -1, mode = -1;
-    int key_type = PRIVATE_KEY; //indicate the type of the input key file
     size_t parameter_count = sizeof(parameter)/sizeof(parameter[0]);
     uint64_t meta_offset = 0;
     uint32_t option_flag_bits = 0;
@@ -1417,7 +1408,7 @@ int main(int argc, char* argv[])
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
     }
-    if((generate_output(mode, key_type, enclave_hash, &rsa, metadata, path)) == false)
+    if((generate_output(mode, enclave_hash, &rsa, metadata, path)) == false)
     {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
