@@ -1398,6 +1398,7 @@ int main(int argc, char* argv[])
     for(size_t i = 0; i < parameter_count; i++)
     {
         parameter[i].value = parameter_value[i];
+        parameter[i].flag = 1;
     }
     //Parse the key file
     fp = fopen(path[KEY], "rb");
