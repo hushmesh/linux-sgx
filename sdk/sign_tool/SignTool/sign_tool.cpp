@@ -135,14 +135,14 @@ static bool get_enclave_info(BinParser *parser, bin_fmt_t *bf, uint64_t * meta_o
 // measure_enclave():
 //    1. Get the enclave hash by loading enclave
 //    2. Get the enclave info - metadata offset and enclave file format
-static bool measure_enclave(uint8_t *hash, const char *dllpath, const xml_parameter_t *parameter, uint32_t option_flag_bits, metadata_t *metadata, uint64_t *meta_offset, uint8_t *meta_versions)
+static bool measure_enclave(uint8_t *hash, const unsigned char *enclave_buf, size_t enclave_len, const xml_parameter_t *parameter, uint32_t option_flag_bits, metadata_t *metadata, uint64_t *meta_offset, uint8_t *meta_versions)
 {
-    assert(hash && dllpath && metadata && meta_offset && meta_versions);
+    assert(hash && enclave_buf && metadata && meta_offset && meta_versions);
     bool res = false;
-    off_t file_size = 0;
+//    off_t file_size = 0;
     uint64_t quota = 0;
     bin_fmt_t bin_fmt = BF_UNKNOWN;
-
+/*
     se_file_handle_t fh = open_file(dllpath);
     if (fh == THE_INVALID_HANDLE)
     {
@@ -160,18 +160,22 @@ static bool measure_enclave(uint8_t *hash, const char *dllpath, const xml_parame
     // Parse enclave
     std::unique_ptr<BinParser> parser(binparser::get_parser(mh->base_addr, (size_t)file_size));
     assert(parser != NULL);
+    */
+    // Parse enclave
+    std::unique_ptr<BinParser> parser(binparser::get_parser(enclave_buf, enclave_len));
+    assert(parser != NULL);
 
     sgx_status_t status = parser->run_parser();
     if (status != SGX_SUCCESS)
     {
         se_trace(SE_TRACE_ERROR, INVALID_ENCLAVE_ERROR);
-        close_handle(fh);
+        //close_handle(fh);
         return false;
     }
     if(parser->has_init_section() && IGNORE_INIT_SEC_ERROR(option_flag_bits) == false)
     {
         se_trace(SE_TRACE_ERROR, INIT_SEC_ERROR);
-        close_handle(fh);
+        //close_handle(fh);
         return false;
     }
 
@@ -179,7 +183,7 @@ static bool measure_enclave(uint8_t *hash, const char *dllpath, const xml_parame
     CMetadata meta(metadata, parser.get());
     if(meta.build_metadata(parameter) == false)
     {
-        close_handle(fh);
+        //close_handle(fh);
         return false;
     }
 
@@ -189,7 +193,7 @@ static bool measure_enclave(uint8_t *hash, const char *dllpath, const xml_parame
     // Collect enclave info
     if(get_enclave_info(parser.get(), &bin_fmt, meta_offset, false, ENABLE_RESIGN(option_flag_bits)) == false)
     {
-        close_handle(fh);
+        //close_handle(fh);
         return false;
     }
     bool no_rel = false;
@@ -203,14 +207,14 @@ static bool measure_enclave(uint8_t *hash, const char *dllpath, const xml_parame
     }
     if(no_rel == false && (IGNORE_REL_ERROR(option_flag_bits) == false))
     {
-        close_handle(fh);
+        //close_handle(fh);
         se_trace(SE_TRACE_ERROR, TEXT_REL_ERROR);
         return false;
     }
 
     // Load enclave to get enclave hash
     int ret = load_enclave(parser.release(), metadata);
-    close_handle(fh);
+    //close_handle(fh);
 
     switch(ret)
     {
@@ -1354,6 +1358,8 @@ int main(int argc, char* argv[])
     uint8_t meta_versions = 0;
     unsigned char *private_key_pem = NULL;
     unsigned char *private_key_der = NULL;
+    unsigned char *input_enclave_buf = NULL;
+    size_t input_enclave_len = 0;
     FILE *fp = NULL;
 
     wolfCrypt_Init();
@@ -1419,13 +1425,23 @@ int main(int argc, char* argv[])
     }
     free(private_key_pem);
     free(private_key_der);
+    fp = fopen(path[DLL], "rb");
+    fseek(fp, 0, SEEK_END);
+    file_len = (word32) ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    input_enclave_buf = (unsigned char*) malloc(file_len);
+    if (file_len != fread(input_enclave_buf, 1, file_len, fp)) {
+        goto clear_return;
+    }
+    fclose(fp);
+    input_enclave_len = file_len;
     if(copy_file(path[DLL], path[OUTPUT]) == false)
     {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
     }
 
-    if(measure_enclave(enclave_hash, path[OUTPUT], parameter, option_flag_bits, metadata, &meta_offset, &meta_versions) == false)
+    if(measure_enclave(enclave_hash, input_enclave_buf, input_enclave_len, parameter, option_flag_bits, metadata, &meta_offset, &meta_versions) == false)
     {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
