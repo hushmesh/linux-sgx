@@ -94,7 +94,9 @@ typedef enum _file_path_t
 static int load_enclave(BinParser *parser, metadata_t *metadata)
 {
     std::unique_ptr<CLoader> ploader(new CLoader(const_cast<uint8_t *>(parser->get_start_addr()), *parser));
-    return ploader->load_enclave_ex(NULL, 0, metadata, NULL,  0, NULL);
+    int success = ploader->load_enclave_ex(NULL, 0, metadata, NULL,  0, NULL);
+    delete parser;
+    return success;
 }
 
 
