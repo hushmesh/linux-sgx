@@ -409,11 +409,6 @@ static bool create_signature(const RsaKey *rsa, const char *sigpath, enclave_css
     assert(!(rsa == NULL && sigpath == NULL) && !(rsa != NULL && sigpath != NULL));
 
     WC_RNG rng;
-    int rc = wc_InitRng(&rng);
-    if (rc) {
-        return false;
-    }
-
     uint8_t signature[SIGNATURE_SIZE];    // keep the signature in big endian
     memset(signature, 0, SIGNATURE_SIZE);
     //**********get the signature*********//
@@ -459,8 +454,13 @@ static bool create_signature(const RsaKey *rsa, const char *sigpath, enclave_css
         if (enc_sz == 0) {
             return false;
         }
+        if(wc_InitRng(&rng))
+        {
+           return false;
+        }
         int ret = wc_RsaSSL_Sign(encoded_sig, enc_sz, signature,
             sizeof(signature), const_cast<RsaKey*>(rsa), &rng);
+        wc_FreeRng(&rng);
         if(ret <= 0)
             return false;
     }
@@ -1543,6 +1543,10 @@ int main(int argc, char* argv[])
         return 1;
     }
     fclose(f);
+
+    free(private_key_der);
+    free(input_enclave_buf);
+    free(output_enclave_buf);
 
     return 0;
 }
