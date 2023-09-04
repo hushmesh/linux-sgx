@@ -305,6 +305,7 @@ static bool fill_enclave_css(const RsaKey *rsa, const char **path,
     // fill the enclave hash
     memcpy_s(&css->body.enclave_hash, sizeof(css->body.enclave_hash), enclave_hash, SGX_HASH_SIZE);
 
+    /*
     if(path[UNSIGNED] != NULL)
     {
         // In catsig mode, update the header.date as the time when the unsigned file is generated.
@@ -335,6 +336,7 @@ static bool fill_enclave_css(const RsaKey *rsa, const char **path,
             return false;
         }
     }
+    */
     return true;
 }
 
@@ -1296,18 +1298,12 @@ static bool dump_enclave_metadata(const char *enclave_path, const char *dumpfile
     close_handle(fh);
     return true;
 }
-int main(int argc, char* argv[])
-{
-    uint64_t parameter_value[] = {
-             0, 0, 0, 0, 0, 0, 0, 0,
-             6, 32, 16, 1,
-	     0x40000, 0x40000,
-	     0x90000000, 0x90000000, 0x90000000,
-	     0x2000000, 0x2000000, 0x2000000,
-	     1, 0, 0xFFFFFFFF,
-	     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    };
 
+int enclave_sign(unsigned char *input_enclave_buf, size_t input_enclave_len,
+		unsigned char *private_key_der, size_t private_key_len,
+		uint64_t *parameter_buf, size_t parameter_len,
+		unsigned char *output_enclave_buf, size_t output_enclave_len)
+{
     xml_parameter_t parameter[] = {/* name,                 max_value          min_value,      default value,       flag */
                                    {"ProdID",               0xFFFF,                0,              0,                   0},
                                    {"ISVSVN",               0xFFFF,                0,              0,                   0},
@@ -1343,37 +1339,40 @@ int main(int argc, char* argv[])
                                    {"PKRU",                 FEATURE_LOADER_SELECTS,                     FEATURE_MUST_BE_DISABLED,              FEATURE_MUST_BE_DISABLED,                   0},
                                    {"AMX",                  FEATURE_LOADER_SELECTS,                     FEATURE_MUST_BE_DISABLED,              FEATURE_MUST_BE_DISABLED,                   0},
                                    {"UserRegionSize",       ENCLAVE_MAX_SIZE_64/2, 0,              USER_REGION_SIZE,    0}};
-    const char *path[8] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+    //const char *path[8] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
     uint8_t enclave_hash[SGX_HASH_SIZE] = {0};
     uint8_t metadata_raw[METADATA_SIZE];
     metadata_t *metadata = (metadata_t*)metadata_raw;
     int res = -1, mode = -1;
     size_t parameter_count = sizeof(parameter)/sizeof(parameter[0]);
-    size_t parameter_value_count = sizeof(parameter_value)/sizeof(parameter_value[0]);
     uint64_t meta_offset = 0;
     uint32_t option_flag_bits = 0;
     RsaKey rsa;
-    word32 idx = 0, file_len = 0, der_len = 0;
+    word32 idx = 0;
     memset(&metadata_raw, 0, sizeof(metadata_raw));
     uint8_t meta_versions = 0;
-    unsigned char *private_key_pem = NULL;
-    unsigned char *private_key_der = NULL;
-    unsigned char *input_enclave_buf = NULL;
-    size_t input_enclave_len = 0;
-    FILE *fp = NULL;
 
-    wolfCrypt_Init();
-    if(parameter_value_count != parameter_count) {
+    if(parameter_len != (parameter_count * sizeof(uint64_t)))
+    {
+        se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
+        goto clear_return;
+    }
+    if(input_enclave_len != output_enclave_len)
+    {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
     }
 
     //Parse command line
+    /*
     if(cmdline_parse(argc, argv, &mode, path, &option_flag_bits) == false)
     {
         se_trace(SE_TRACE_ERROR, USAGE_STRING);
         goto clear_return;
     }
+    */
+    mode = SIGN;
+    /*
     if(mode == -1) // User only wants to get the help info or version info
     {
         res = 0;
@@ -1391,6 +1390,7 @@ int main(int argc, char* argv[])
         res = 0;
         goto clear_return;
     }
+    */
 
     //Other modes
     //
@@ -1403,50 +1403,30 @@ int main(int argc, char* argv[])
     */
     for(size_t i = 0; i < parameter_count; i++)
     {
-        parameter[i].value = parameter_value[i];
+        parameter[i].value = parameter_buf[i];
         parameter[i].flag = 1;
     }
     //Parse the key file
-    fp = fopen(path[KEY], "rb");
-    fseek(fp, 0, SEEK_END);
-    file_len = (word32) ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    private_key_pem = (unsigned char*) malloc(file_len);
-    private_key_der = (unsigned char*) malloc(file_len);
-    if (file_len != fread(private_key_pem, 1, file_len, fp)) {
-        goto clear_return;
-    }
-    fclose(fp);
     wc_InitRsaKey(&rsa, NULL);
-    der_len = wc_KeyPemToDer(private_key_pem, file_len, private_key_der, file_len, NULL);
-    if(0 != wc_RsaPrivateKeyDecode(private_key_der, &idx, &rsa, der_len))
+    if(0 != wc_RsaPrivateKeyDecode(private_key_der, &idx, &rsa, (word32) private_key_len))
     {
         goto clear_return;
     }
-    free(private_key_pem);
-    free(private_key_der);
-    fp = fopen(path[DLL], "rb");
-    fseek(fp, 0, SEEK_END);
-    file_len = (word32) ftell(fp);
-    fseek(fp, 0, SEEK_SET);
-    input_enclave_buf = (unsigned char*) malloc(file_len);
-    if (file_len != fread(input_enclave_buf, 1, file_len, fp)) {
-        goto clear_return;
-    }
-    fclose(fp);
-    input_enclave_len = file_len;
+    /*
     if(copy_file(path[DLL], path[OUTPUT]) == false)
     {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
     }
+    */
+    memcpy(output_enclave_buf, input_enclave_buf, input_enclave_len);
 
     if(measure_enclave(enclave_hash, input_enclave_buf, input_enclave_len, parameter, option_flag_bits, metadata, &meta_offset, &meta_versions) == false)
     {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
     }
-    if((generate_output(mode, enclave_hash, &rsa, metadata, path)) == false)
+    if((generate_output(mode, enclave_hash, &rsa, metadata, NULL)) == false)
     {
         se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
         goto clear_return;
@@ -1465,13 +1445,13 @@ int main(int argc, char* argv[])
             se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
             goto clear_return;
         }
-        if(false == update_metadata(path[OUTPUT], metadata, meta_offset))
+        if(false == update_metadata(output_enclave_buf, metadata, meta_offset))
         {
             se_trace(SE_TRACE_ERROR, OVERALL_ERROR);
             goto clear_return;
         }
     }
-
+/*
     if(path[DUMPFILE] != NULL)
     {
         if(print_metadata(path[DUMPFILE], metadata) == false)
@@ -1486,16 +1466,83 @@ int main(int argc, char* argv[])
             (uint8_t *)&(metadata->enclave_css), sizeof(enclave_css_t)) == false)
             goto clear_return;
     }
+*/
 
     se_trace(SE_TRACE_ERROR, SUCCESS_EXIT);
     res = 0;
 
 clear_return:
+    /*
     if(res == -1 && path[OUTPUT])
         remove(path[OUTPUT]);
     if(res == -1 && path[DUMPFILE])
         remove(path[DUMPFILE]);
     if(res == -1 && path[CSSFILE])
         remove(path[CSSFILE]);
+    */
+    if(res == -1)
+	memset(output_enclave_buf, 0, output_enclave_len);
     return res;
+}
+
+int main(int argc, char* argv[])
+{
+    if (argc != 4) {
+        std::cerr << "incorrect number of arguments" << std::endl;
+	return 1;
+    }
+    uint64_t parameters[] = {
+             0, 0, 0, 0, 0, 0, 0, 0,
+             6, 32, 16, 1,
+             0x40000, 0x40000,
+             0x90000000, 0x90000000, 0x90000000,
+             0x2000000, 0x2000000, 0x2000000,
+             1, 0, 0xFFFFFFFF,
+             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    };
+    wolfCrypt_Init();
+
+    FILE *f = fopen(argv[1], "rb");
+    fseek(f, 0, SEEK_END);
+    size_t private_key_len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *private_key_der = (unsigned char*) malloc(private_key_len);
+    if (private_key_len != fread(private_key_der, 1, private_key_len, f)) {
+        return 1;
+    }
+    fclose(f);
+
+    f = fopen(argv[2], "rb");
+    fseek(f, 0, SEEK_END);
+    size_t input_enclave_len = ftell(f);
+    size_t output_enclave_len = input_enclave_len;
+    fseek(f, 0, SEEK_SET);
+    unsigned char *input_enclave_buf = (unsigned char*) malloc(input_enclave_len);
+    unsigned char *output_enclave_buf = (unsigned char*) malloc(output_enclave_len);
+    if (input_enclave_len != fread(input_enclave_buf, 1, input_enclave_len, f)) {
+        return 1;
+    }
+    fclose(f);
+
+    int result = enclave_sign(
+        input_enclave_buf,
+	input_enclave_len,
+	private_key_der,
+	private_key_len,
+	parameters,
+	sizeof(parameters),
+	output_enclave_buf,
+	output_enclave_len);
+
+    if (result != 0) {
+        return result;
+    }
+
+    f = fopen(argv[3], "wb");
+    if (output_enclave_len != fwrite(output_enclave_buf, 1, output_enclave_len, f)) {
+        return 1;
+    }
+    fclose(f);
+
+    return 0;
 }

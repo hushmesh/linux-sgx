@@ -1682,12 +1682,10 @@ bool CMetadata::check_config()
     }
 }
 
-bool update_metadata(const char *path, const metadata_t *metadata, uint64_t meta_offset)
+bool update_metadata(unsigned char *buffer, const metadata_t *metadata, uint64_t meta_offset)
 {
-    assert(path != NULL && metadata != NULL);
-
-    return write_data_to_file(path, std::ios::in | std::ios::binary| std::ios::out,
-        reinterpret_cast<uint8_t *>(const_cast<metadata_t *>( metadata)), METADATA_SIZE, (long)meta_offset);
+    memcpy(buffer + meta_offset, metadata, sizeof(metadata_t));
+    return true;
 }
 
 
